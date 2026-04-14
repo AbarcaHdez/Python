@@ -1,9 +1,20 @@
-# Python CRUD
+# API Usuarios con Flask
 
-Proyecto para practicar:
-- Funciones
-- Listas y diccionarios
-- CRUD de usuarios
+CRUD completo con validaciones.
 
-## Cómo ejecutar
-python usuarios.py
+## Endpoints
+
+GET /usuarios  
+GET /usuarios/{id}  
+POST /usuarios  
+PUT /usuarios/{id}  
+PATCH /usuarios/{id}  
+DELETE /usuarios/{id}  
+
+## Ejemplo POST
+
+{
+  "nombre": "Juan",
+  "edad": 25,
+  "usuario": "juan123"
+}
