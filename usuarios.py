@@ -1,34 +1,35 @@
-usuarios = [{"nombre": 'Juan', "edad": 25},{"nombre":'Sebastian',"edad": 23}]
+usuarios = []
+id = 1
 
 def agregar_usuario(nombre, edad):
+    global id
     usuarios.append({
+        "id": id,
         "nombre": nombre,
         "edad": edad
     })
+    id+=1
 
 def listar_usuarios():
     return usuarios
 
-def obtener_usuarioByNombre(nombre):
+def obtener_usuarioById(id):
     for u in usuarios:
-        if u["nombre"] == nombre:
+        if u["id"] == id:
             return u
     return None
 
-def editar_usuario(nombre, nueva_edad):
+def editar_usuarioById(id, nuevo_nombre, nueva_edad):
     for u in usuarios:
-        if u["nombre"] == nombre:
+        if u["id"] == id:
+            u["nombre"] = nuevo_nombre
             u["edad"] = nueva_edad
             return True
     return False
 
-def eliminar_usuario(nombre):
+def eliminar_usuario(id):
     global usuarios
-    usuarios = [u for u in usuarios if u["nombre"] != nombre]
+    usuarios = [u for u in usuarios if u["id"] != id]
 
 def obtener_mayores():
     return [u for u in usuarios if u["edad"] >= 18]
-
-print(editar_usuario("Juan", 26))
-
-print(usuarios)
