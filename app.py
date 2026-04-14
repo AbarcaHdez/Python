@@ -1,16 +1,32 @@
 from flask import Flask, request, jsonify
+from flasgger import Swagger
 from usuarios import *
 
 app = Flask(__name__)
+swagger = Swagger(app)
 
 # GET → obtener todos
 @app.route("/usuarios", methods=["GET"])
 def get_usuarios():
+    """
+    Obtener todos los usuarios
+    ---
+    responses:
+        200:
+            description: Lista de usuarios
+    """
     return jsonify(listar_usuarios())
 
 # GET → uno solo
 @app.route("/usuarios/<int:id>", methods=["GET"])
 def get_usuario(id):
+    """
+    Obtener un usuario por su id
+    ---
+    responses:
+        200:
+            description: Lista un usuario
+    """
     usuario = obtener_usuarioById(id)
     if usuario:
         return jsonify(usuario)
@@ -19,6 +35,29 @@ def get_usuario(id):
 # POST → crear
 @app.route("/usuarios", methods=["POST"])
 def crear_usuario():
+    """
+    Crear un usuario
+    ---
+    parameters:
+      - in: body
+        name: usuario
+        required: true
+        schema:
+          type: object
+          properties:
+            nombre:
+              type: string
+            edad:
+              type: integer
+            usuario:
+              type: string
+    responses:
+      201:
+        description: Usuario creado
+      400:
+        description: Datos inválidos
+    """
+
     data = request.json
 
     # Validar que venga JSON
@@ -61,9 +100,35 @@ def crear_usuario():
 
     return jsonify({"mensaje": "Usuario agregado"}), 201
 
-# POST → editar
+# PUT → editar completo
 @app.route("/usuarios/<int:id>", methods=["PUT"])
 def editar_usuario(id):
+    """
+    Reemplazar usuario completo
+    ---
+    parameters:
+      - name: id
+        in: path
+        type: integer
+        required: true
+      - in: body
+        name: usuario
+        required: true
+        schema:
+          type: object
+          properties:
+            nombre:
+              type: string
+            edad:
+              type: integer
+            usuario:
+              type: string
+    responses:
+      200:
+        description: Usuario actualizado
+      404:
+        description: Usuario no encontrado
+    """
     data = request.json
 
     # Validar JSON
@@ -102,8 +167,43 @@ def editar_usuario(id):
 
     return jsonify({"mensaje": "Usuario reemplazado completamente"}), 200
 
+# PATCH → editar parcial
 @app.route("/usuarios/<int:id>", methods=["PATCH"])
 def actualizar_parcial(id):
+    """
+    Actualizar parcialmente un usuario
+    ---
+    parameters:
+      - name: id
+        in: path
+        type: integer
+        required: true
+        description: ID del usuario
+
+      - in: body
+        name: usuario
+        required: true
+        schema:
+          type: object
+          properties:
+            nombre:
+              type: string
+              example: Juan
+            edad:
+              type: integer
+              example: 30
+            usuario:
+              type: string
+              example: juan123
+
+    responses:
+      200:
+        description: Permite actualizar uno o más campos del usuario sin necesidad de enviar todos.
+      400:
+        description: Datos inválidos
+      404:
+        description: Usuario no encontrado
+    """
     data = request.json
 
     if not data:
@@ -138,6 +238,20 @@ def actualizar_parcial(id):
 # DELETE → eliminar
 @app.route("/usuarios/<int:id>", methods=["DELETE"])
 def borrar_usuario(id):
+    """
+    Eliminar usuario
+    ---
+    parameters:
+      - name: id
+        in: path
+        type: integer
+        required: true
+    responses:
+      200:
+        description: Usuario eliminado
+      404:
+        description: Usuario no encontrado
+    """
     eliminado = eliminar_usuario(id)
 
     if eliminado:

@@ -2,6 +2,12 @@
 
 CRUD completo con validaciones.
 
+## Documentación Swagger
+
+Ejecuta el proyecto y visita:
+
+http://localhost:5000/apidocs
+
 ## Endpoints
 
 GET /usuarios  
