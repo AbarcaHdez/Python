@@ -1,6 +1,9 @@
 from flask import Flask, request, jsonify
 from flasgger import Swagger
 from usuarios import *
+from usuarios import cargar_usuarios
+
+cargar_usuarios()
 
 app = Flask(__name__)
 swagger = Swagger(app)
