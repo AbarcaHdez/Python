@@ -19,7 +19,8 @@ def get_usuarios():
         200:
             description: Lista de usuarios
     """
-    return jsonify(usuario_service.listar_usuarios())
+    usuarios = usuario_service.listar_usuarios()
+    return jsonify(usuarios)
 
 # GET → uno solo
 @app.route("/usuarios/<int:id>", methods=["GET"])
@@ -32,9 +33,11 @@ def get_usuario(id):
             description: Lista un usuario
     """
     usuario = usuario_service.obtener_usuarioById(id)
-    if usuario:
-        return jsonify(usuario)
-    return jsonify({"error": "Usuario no encontrado"}), 404
+
+    if not usuario:
+        return jsonify({"error": "Usuario no encontrado"}), 404
+
+    return jsonify(usuario)
 
 # POST → crear
 @app.route("/usuarios", methods=["POST"])
@@ -64,33 +67,17 @@ def crear_usuario():
 
     data = request.json
 
-    # Validar que venga JSON
     if not data:
         return jsonify({"error": "No se enviaron datos"}), 400
 
-    # Validar campos obligatorios
     if "nombre" not in data or "edad" not in data or "usuario" not in data:
-        return jsonify({"error": "Faltan campos: nombre, edad, usuario"}), 400
+        return jsonify({"error": "Faltan campos"}), 400
 
     nombre = data["nombre"]
     edad = data["edad"]
     usuario = data["usuario"]
-    
-    # Validar tipo
-    if not isinstance(nombre, str):
-        return jsonify({"error": "Nombre debe ser texto"}), 400
-    
-    # Validar duplicado
-    if usuario_service.existe_usuario(usuario):
-        return jsonify({"error": "Usuario ya existe"}), 400
-    
-    if not isinstance(usuario, str):
-        return jsonify({"error": "Usuario debe ser texto"}), 400
 
-    if not isinstance(edad, int):
-        return jsonify({"error": "Edad debe ser número"}), 400
-
-    # Validar contenido
+    # Validaciones
     error = usuario_service.validar_nombre(nombre)
     if error:
         return jsonify({"error": error}), 400
@@ -103,9 +90,15 @@ def crear_usuario():
     if error:
         return jsonify({"error": error}), 400
 
-    usuario_service.agregar_usuario(nombre, edad, usuario)
+    if usuario_service.existe_usuario(usuario):
+        return jsonify({"error": "Usuario ya existe"}), 400
 
-    return jsonify({"mensaje": "Usuario agregado"}), 201
+    creado = usuario_service.agregar_usuario(nombre, edad, usuario)
+
+    if not creado:
+        return jsonify({"error": "Error al crear usuario"}), 500
+
+    return jsonify({"mensaje": "Usuario creado"}), 201
 
 # PUT → editar completo
 @app.route("/usuarios/<int:id>", methods=["PUT"])
@@ -138,43 +131,22 @@ def editar_usuario(id):
     """
     data = request.json
 
-    # Validar JSON
     if not data:
         return jsonify({"error": "No se enviaron datos"}), 400
-
-    # Validar TODOS los campos obligatorios
-    if "nombre" not in data or "edad" not in data or "usuario" not in data:
-        return jsonify({"error": "Faltan campos: nombre, edad, usuario"}), 400
 
     nombre = data["nombre"]
     edad = data["edad"]
     usuario = data["usuario"]
 
-    # Validar duplicado (excepto él mismo)
-    error = usuario_service.existe_usuario_en_edicion(usuario,id)
-    if(error):
-      return jsonify({"error": "Usuario ya existente"})
+    if usuario_service.existe_usuario_en_edicion(usuario, id):
+        return jsonify({"error": "Usuario ya existe"}), 400
 
-    # Validaciones de tipo
-    error = usuario_service.validar_nombre(nombre)
-    if (error):
-        return jsonify({"error": error}), 400
+    actualizado = usuario_service.editar_usuario(id, nombre, edad, usuario)
 
-    error = usuario_service.validar_usuario(usuario)
-    if (error):
-        return jsonify({"error": error}), 400
-
-    error = usuario_service.validar_edad(edad)
-    if (error):
-        return jsonify({"error": error}), 400
-
-    # Reemplazo completo
-    actualizado = usuario_service.editar_usuarioById(id, nombre, edad, usuario)
-    
     if not actualizado:
-      return jsonify({"mensaje": "Usuario no encontrado"}), 404
+        return jsonify({"error": "Usuario no encontrado"}), 404
 
-    return jsonify({"mensaje": "Usuario reemplazado completamente"}), 200
+    return jsonify({"mensaje": "Usuario actualizado"}), 200
 
 # PATCH → editar parcial
 @app.route("/usuarios/<int:id>", methods=["PATCH"])
@@ -263,10 +235,10 @@ def borrar_usuario(id):
     """
     eliminado = usuario_service.eliminar_usuario(id)
 
-    if eliminado:
-        return jsonify({"mensaje": "Usuario eliminado"}), 200
+    if not eliminado:
+        return jsonify({"error": "Usuario no encontrado"}), 404
 
-    return jsonify({"error": "Usuario no encontrado"}), 404
+    return jsonify({"mensaje": "Usuario eliminado"}), 200
 
 if __name__ == "__main__":
     app.run(debug=True)
