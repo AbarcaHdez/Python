@@ -1,12 +1,14 @@
 import json
 import os
+import sqlite3
 
 class UsuarioService:
     
     def __init__(self):
-        self.usuarios = []
-        self.ruta = "data/usuarios.db"
-        self.id = 1
+        self.conn = sqlite3.connect("data/usuarios.db", check_same_thread=False)
+        self.cursor = self.conn.cursor()
+        self.crear_tabla()
+        self.ruta = "data/usuarios.json"
 
     #---------------- Funciones y CRUD ----------------#
     
@@ -28,56 +30,51 @@ class UsuarioService:
             json.dump(self.usuarios, f, indent=4)
 
     def agregar_usuario(self, nombre, edad, usuario):
-        nuevo = {
-            "id": self.next_id,
-            "nombre": nombre,
-            "edad": edad,
-            "usuario": usuario
-        }
-
-        self.usuarios.append(nuevo)
-        self.id+=1
-        self.guardar_usuarios()
+        try:
+            self.cursor.execute(
+                "INSERT INTO usuarios (nombre, edad, usuario) VALUES (?, ?, ?)",
+                (nombre, edad, usuario)
+            )
+            self.conn.commit()
+            return True
+        except:
+            return False
 
     def listar_usuarios(self):
-        return self.usuarios
+        self.cursor.execute("SELECT * FROM usuarios")
+        filas = self.cursor.fetchall()
+        return [self.formatear_usuario(f) for f in filas]
 
     def obtener_usuarioById(self, id):
-        for u in self.usuarios:
-            if u["id"] == id:
-                return u
-        return None
+        self.cursor.execute("SELECT * FROM usuarios WHERE id = ?", (id,))
+        fila = self.cursor.fetchone()
+        return self.formatear_usuario(fila)
 
-    def editar_usuarioById(self, id, nuevo_nombre, nueva_edad, nuevo_usuario):
-        for u in self.usuarios:
-            if u["id"] == id:
-                u["nombre"] = nuevo_nombre
-                u["edad"] = nueva_edad
-                u["usuario"] = nuevo_usuario
-                
-                self.guardar_usuarios()
-                return True
-        return False
+    def editar_usuario(self, id, nombre, edad, usuario):
+        self.cursor.execute(
+            "UPDATE usuarios SET nombre = ?, edad = ?, usuario = ? WHERE id = ?",
+            (nombre, edad, usuario, id)
+        )
+        self.conn.commit()
+        return self.cursor.rowcount > 0
 
     def eliminar_usuario(self, id):
-        inicial = len(self.usuarios)
-        self.usuarios = [u for u in self.usuarios if u["id"] != id]
-        if len(self.usuarios) < inicial:
-            self.guardar_usuarios()
-            return True
-
-        return False
-
-    def obtener_mayores(self):
-        return [u for u in self.usuarios if u["edad"] >= 18]
+        self.cursor.execute("DELETE FROM usuarios WHERE id = ?", (id,))
+        self.conn.commit()
+        return self.cursor.rowcount > 0
     
     #---------------- Validaciones Backend ----------------#
 
     def existe_usuario(self, usuario):
-        return any(u["usuario"] == usuario for u in self.usuarios)
+        self.cursor.execute("SELECT 1 FROM usuarios WHERE usuario = ?", (usuario,))
+        return self.cursor.fetchone() is not None
     
     def existe_usuario_en_edicion(self, usuario, id):
-        return any(u["usuario"] == usuario and u["id"] != id for u in self.usuarios)
+        self.cursor.execute(
+            "SELECT 1 FROM usuarios WHERE usuario = ? AND id != ?",
+            (usuario, id)
+        )
+        return self.cursor.fetchone() is not None
     
     def validar_nombre(self, nombre):
         if not isinstance(nombre, str):
@@ -105,3 +102,27 @@ class UsuarioService:
             return "Edad inválida"
         
         return None
+    
+    #---------------- Base de Datos ----------------#
+    
+    def crear_tabla(self):
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS usuarios (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nombre TEXT NOT NULL,
+                edad INTEGER NOT NULL,
+                usuario TEXT UNIQUE NOT NULL
+            )
+        """)
+        self.conn.commit()
+        
+    def formatear_usuario(self, fila):
+        if not fila:
+            return None
+
+        return {
+            "id": fila[0],
+            "nombre": fila[1],
+            "edad": fila[2],
+            "usuario": fila[3]
+        }
