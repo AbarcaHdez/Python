@@ -5,7 +5,7 @@ class UsuarioService:
     
     def __init__(self):
         self.usuarios = []
-        self.ruta = "data/usuarios.json"
+        self.ruta = "data/usuarios.db"
         self.id = 1
 
     #---------------- Funciones y CRUD ----------------#
