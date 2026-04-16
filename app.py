@@ -4,7 +4,6 @@ from flasgger import Swagger
 from services.usuarios import *
 
 usuario_service = UsuarioService()
-usuario_service.cargar_usuarios()
 
 app = Flask(__name__)
 swagger = Swagger(app)
