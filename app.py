@@ -1,9 +1,10 @@
+from services.usuarios import UsuarioService
 from flask import Flask, request, jsonify
 from flasgger import Swagger
-from usuarios import *
-from usuarios import cargar_usuarios
+from services.usuarios import *
 
-cargar_usuarios()
+usuario_service = UsuarioService()
+usuario_service.cargar_usuarios()
 
 app = Flask(__name__)
 swagger = Swagger(app)
@@ -18,7 +19,7 @@ def get_usuarios():
         200:
             description: Lista de usuarios
     """
-    return jsonify(listar_usuarios())
+    return jsonify(usuario_service.listar_usuarios())
 
 # GET → uno solo
 @app.route("/usuarios/<int:id>", methods=["GET"])
@@ -30,7 +31,7 @@ def get_usuario(id):
         200:
             description: Lista un usuario
     """
-    usuario = obtener_usuarioById(id)
+    usuario = usuario_service.obtener_usuarioById(id)
     if usuario:
         return jsonify(usuario)
     return jsonify({"error": "Usuario no encontrado"}), 404
@@ -75,13 +76,13 @@ def crear_usuario():
     edad = data["edad"]
     usuario = data["usuario"]
     
-    # Validar duplicado
-    if any(u["usuario"] == usuario for u in usuarios):
-        return jsonify({"error": "Usuario ya existe"}), 400
-
     # Validar tipo
     if not isinstance(nombre, str):
         return jsonify({"error": "Nombre debe ser texto"}), 400
+    
+    # Validar duplicado
+    if usuario_service.existe_usuario(usuario):
+        return jsonify({"error": "Usuario ya existe"}), 400
     
     if not isinstance(usuario, str):
         return jsonify({"error": "Usuario debe ser texto"}), 400
@@ -90,16 +91,19 @@ def crear_usuario():
         return jsonify({"error": "Edad debe ser número"}), 400
 
     # Validar contenido
-    if nombre.strip() == "":
-        return jsonify({"error": "Nombre vacío"}), 400
-    
-    if usuario.strip() == "":
-        return jsonify({"error": "Usuario vacío"}), 400
+    error = usuario_service.validar_nombre(nombre)
+    if error:
+        return jsonify({"error": error}), 400
 
-    if edad < 0:
-        return jsonify({"error": "Edad inválida"}), 400
+    error = usuario_service.validar_usuario(usuario)
+    if error:
+        return jsonify({"error": error}), 400
 
-    agregar_usuario(nombre, edad, usuario)
+    error = usuario_service.validar_edad(edad)
+    if error:
+        return jsonify({"error": error}), 400
+
+    usuario_service.agregar_usuario(nombre, edad, usuario)
 
     return jsonify({"mensaje": "Usuario agregado"}), 201
 
@@ -146,27 +150,29 @@ def editar_usuario(id):
     edad = data["edad"]
     usuario = data["usuario"]
 
-    # Validaciones de tipo
-    if not isinstance(nombre, str) or nombre.strip() == "":
-        return jsonify({"error": "Nombre inválido"}), 400
-
-    if not isinstance(usuario, str) or usuario.strip() == "":
-        return jsonify({"error": "Usuario inválido"}), 400
-
-    if not isinstance(edad, int) or edad < 0:
-        return jsonify({"error": "Edad inválida"}), 400
-
-    # Verificar existencia
-    usuario_existente = obtener_usuarioById(id)
-    if not usuario_existente:
-        return jsonify({"error": "Usuario no encontrado"}), 404
-
     # Validar duplicado (excepto él mismo)
-    if any(u["usuario"] == usuario and u["id"] != id for u in usuarios):
-        return jsonify({"error": "Usuario ya existe"}), 400
+    error = usuario_service.existe_usuario_en_edicion(usuario,id)
+    if(error):
+      return jsonify({"error": "Usuario ya existente"})
+
+    # Validaciones de tipo
+    error = usuario_service.validar_nombre(nombre)
+    if (error):
+        return jsonify({"error": error}), 400
+
+    error = usuario_service.validar_usuario(usuario)
+    if (error):
+        return jsonify({"error": error}), 400
+
+    error = usuario_service.validar_edad(edad)
+    if (error):
+        return jsonify({"error": error}), 400
 
     # Reemplazo completo
-    actualizado = editar_usuarioById(id, nombre, edad, usuario)
+    actualizado = usuario_service.editar_usuarioById(id, nombre, edad, usuario)
+    
+    if not actualizado:
+      return jsonify({"mensaje": "Usuario no encontrado"}), 404
 
     return jsonify({"mensaje": "Usuario reemplazado completamente"}), 200
 
@@ -212,7 +218,7 @@ def actualizar_parcial(id):
     if not data:
         return jsonify({"error": "No se enviaron datos"}), 400
 
-    usuario = obtener_usuarioById(id)
+    usuario = usuario_service.obtener_usuarioById(id)
     if not usuario:
         return jsonify({"error": "Usuario no encontrado"}), 404
 
@@ -231,7 +237,7 @@ def actualizar_parcial(id):
         if not isinstance(data["usuario"], str) or data["usuario"].strip() == "":
             return jsonify({"error": "Usuario inválido"}), 400
 
-        if any(u["usuario"] == data["usuario"] and u["id"] != id for u in usuarios):
+        if any(u["usuario"] == data["usuario"] and u["id"] != id for u in usuario_service.usuarios):
             return jsonify({"error": "Usuario ya existe"}), 400
 
         usuario["usuario"] = data["usuario"]
@@ -255,7 +261,7 @@ def borrar_usuario(id):
       404:
         description: Usuario no encontrado
     """
-    eliminado = eliminar_usuario(id)
+    eliminado = usuario_service.eliminar_usuario(id)
 
     if eliminado:
         return jsonify({"mensaje": "Usuario eliminado"}), 200
