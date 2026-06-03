@@ -41,62 +41,200 @@ def get_usuario(id):
 # POST → crear
 @app.route("/usuarios", methods=["POST"])
 def crear_usuario():
+    """
+    Crear un usuario
+    ---
+    parameters:
+      - in: body
+        name: usuario
+        required: true
+        schema:
+          type: object
+          properties:
+            nombre:
+              type: string
+            edad:
+              type: integer
+            usuario:
+              type: string
+    responses:
+      201:
+        description: Usuario creado
+      400:
+        description: Datos inválidos
+    """
 
     data = request.json
 
     if not data:
         return jsonify({"error": "No se enviaron datos"}), 400
 
-    resultado = usuario_service.crear_usuario(data)
+    if "nombre" not in data or "edad" not in data or "usuario" not in data:
+        return jsonify({"error": "Faltan campos"}), 400
 
-    if isinstance(resultado, str):
-        return jsonify({"error": resultado}), 400
+    nombre = data["nombre"]
+    edad = data["edad"]
+    usuario = data["usuario"]
 
-    if not resultado:
+    # Validaciones
+    error = usuario_service.validar_nombre(nombre)
+    if error:
+        return jsonify({"error": error}), 400
+
+    error = usuario_service.validar_usuario(usuario)
+    if error:
+        return jsonify({"error": error}), 400
+
+    error = usuario_service.validar_edad(edad)
+    if error:
+        return jsonify({"error": error}), 400
+
+    if usuario_service.existe_usuario(usuario):
+        return jsonify({"error": "Usuario ya existe"}), 400
+
+    creado = usuario_service.agregar_usuario(nombre, edad, usuario)
+
+    if not creado:
         return jsonify({"error": "Error al crear usuario"}), 500
 
     return jsonify({"mensaje": "Usuario creado"}), 201
 
 # PUT → editar completo
 @app.route("/usuarios/<int:id>", methods=["PUT"])
-def actualizar_usuario(id):
-
+def editar_usuario(id):
+    """
+    Reemplazar usuario completo
+    ---
+    parameters:
+      - name: id
+        in: path
+        type: integer
+        required: true
+      - in: body
+        name: usuario
+        required: true
+        schema:
+          type: object
+          properties:
+            nombre:
+              type: string
+            edad:
+              type: integer
+            usuario:
+              type: string
+    responses:
+      200:
+        description: Usuario actualizado
+      404:
+        description: Usuario no encontrado
+    """
     data = request.json
 
     if not data:
         return jsonify({"error": "No se enviaron datos"}), 400
 
-    resultado = usuario_service.actualizar_usuario(id, data)
+    nombre = data["nombre"]
+    edad = data["edad"]
+    usuario = data["usuario"]
 
-    if resultado is None:
+    if usuario_service.existe_usuario_en_edicion(usuario, id):
+        return jsonify({"error": "Usuario ya existe"}), 400
+
+    actualizado = usuario_service.editar_usuario(id, nombre, edad, usuario)
+
+    if not actualizado:
         return jsonify({"error": "Usuario no encontrado"}), 404
-
-    if isinstance(resultado, str):
-        return jsonify({"error": resultado}), 400
-
-    if not resultado:
-        return jsonify({"error": "Error al actualizar"}), 500
 
     return jsonify({"mensaje": "Usuario actualizado"}), 200
 
 # PATCH → editar parcial
 @app.route("/usuarios/<int:id>", methods=["PATCH"])
 def actualizar_parcial(id):
+    """
+    Actualizar parcialmente un usuario
+    ---
+    parameters:
+      - name: id
+        in: path
+        type: integer
+        required: true
+        description: ID del usuario
 
+      - in: body
+        name: usuario
+        required: true
+        schema:
+          type: object
+          properties:
+            nombre:
+              type: string
+              example: Juan
+            edad:
+              type: integer
+              example: 30
+            usuario:
+              type: string
+              example: juan123
+
+    responses:
+      200:
+        description: Permite actualizar uno o más campos del usuario sin necesidad de enviar todos.
+      400:
+        description: Datos inválidos
+      404:
+        description: Usuario no encontrado
+    """
     data = request.json
 
     if not data:
         return jsonify({"error": "No se enviaron datos"}), 400
 
-    resultado = usuario_service.editar_usuario_parcial(id, data)
+    usuario = usuario_service.obtener_usuarioById(id)
 
-    if resultado is None:
+    if not usuario:
         return jsonify({"error": "Usuario no encontrado"}), 404
 
-    if isinstance(resultado, str):
-        return jsonify({"error": resultado}), 400
+    # Actualizar nombre
+    if "nombre" in data:
+        error = usuario_service.validar_nombre(data["nombre"])
+        if error:
+            return jsonify({"error": error}), 400
 
-    return jsonify({"mensaje": "Usuario actualizado parcialmente"}), 200
+        usuario["nombre"] = data["nombre"]
+
+    # Actualizar edad
+    if "edad" in data:
+        error = usuario_service.validar_edad(data["edad"])
+        if error:
+            return jsonify({"error": error}), 400
+
+        usuario["edad"] = data["edad"]
+
+    # Actualizar usuario
+    if "usuario" in data:
+        error = usuario_service.validar_usuario(data["usuario"])
+        if error:
+            return jsonify({"error": error}), 400
+
+        if usuario_service.existe_usuario_en_edicion(data["usuario"], id):
+            return jsonify({"error": "Usuario ya existe"}), 400
+
+        usuario["usuario"] = data["usuario"]
+
+    # Guardar cambios en SQLite
+    actualizado = usuario_service.editar_usuario(
+        id,
+        usuario["nombre"],
+        usuario["edad"],
+        usuario["usuario"]
+    )
+
+    if not actualizado:
+        return jsonify({"error": "No se pudo actualizar"}), 400
+
+    return jsonify({
+        "mensaje": "Usuario actualizado parcialmente"
+    }), 200
 
 # DELETE → eliminar
 @app.route("/usuarios/<int:id>", methods=["DELETE"])
