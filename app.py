@@ -190,30 +190,51 @@ def actualizar_parcial(id):
         return jsonify({"error": "No se enviaron datos"}), 400
 
     usuario = usuario_service.obtener_usuarioById(id)
+
     if not usuario:
         return jsonify({"error": "Usuario no encontrado"}), 404
 
-    # Validaciones (solo si vienen)
+    # Actualizar nombre
     if "nombre" in data:
-        if not isinstance(data["nombre"], str) or data["nombre"].strip() == "":
-            return jsonify({"error": "Nombre inválido"}), 400
+        error = usuario_service.validar_nombre(data["nombre"])
+        if error:
+            return jsonify({"error": error}), 400
+
         usuario["nombre"] = data["nombre"]
 
+    # Actualizar edad
     if "edad" in data:
-        if not isinstance(data["edad"], int) or data["edad"] < 0:
-            return jsonify({"error": "Edad inválida"}), 400
+        error = usuario_service.validar_edad(data["edad"])
+        if error:
+            return jsonify({"error": error}), 400
+
         usuario["edad"] = data["edad"]
 
+    # Actualizar usuario
     if "usuario" in data:
-        if not isinstance(data["usuario"], str) or data["usuario"].strip() == "":
-            return jsonify({"error": "Usuario inválido"}), 400
+        error = usuario_service.validar_usuario(data["usuario"])
+        if error:
+            return jsonify({"error": error}), 400
 
-        if any(u["usuario"] == data["usuario"] and u["id"] != id for u in usuario_service.usuarios):
+        if usuario_service.existe_usuario_en_edicion(data["usuario"], id):
             return jsonify({"error": "Usuario ya existe"}), 400
 
         usuario["usuario"] = data["usuario"]
 
-    return jsonify({"mensaje": "Usuario actualizado parcialmente"}), 200
+    # Guardar cambios en SQLite
+    actualizado = usuario_service.editar_usuario(
+        id,
+        usuario["nombre"],
+        usuario["edad"],
+        usuario["usuario"]
+    )
+
+    if not actualizado:
+        return jsonify({"error": "No se pudo actualizar"}), 400
+
+    return jsonify({
+        "mensaje": "Usuario actualizado parcialmente"
+    }), 200
 
 # DELETE → eliminar
 @app.route("/usuarios/<int:id>", methods=["DELETE"])
